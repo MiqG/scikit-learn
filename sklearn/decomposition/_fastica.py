@@ -92,7 +92,7 @@ def _ica_def(X, tol, g, fun_args, max_iter, w_init):
         n_iter.append(i + 1)
         W[j, :] = w
 
-    return W, max(n_iter)
+    return W, max(n_iter), lim
 
 
 def _ica_par(X, tol, g, fun_args, max_iter, w_init):
@@ -119,7 +119,7 @@ def _ica_par(X, tol, g, fun_args, max_iter, w_init):
                       'tolerance or the maximum number of iterations.',
                       ConvergenceWarning)
 
-    return W, ii + 1
+    return W, ii + 1, lim
 
 
 # Some standard non-linear functions.
@@ -508,9 +508,9 @@ class FastICA(TransformerMixin, BaseEstimator):
                   'w_init': w_init}
 
         if self.algorithm == 'parallel':
-            W, n_iter = _ica_par(X1, **kwargs)
+            W, n_iter, lim = _ica_par(X1, **kwargs)
         elif self.algorithm == 'deflation':
-            W, n_iter = _ica_def(X1, **kwargs)
+            W, n_iter, lim = _ica_def(X1, **kwargs)
         else:
             raise ValueError('Invalid algorithm: must be either `parallel` or'
                              ' `deflation`.')
@@ -525,6 +525,7 @@ class FastICA(TransformerMixin, BaseEstimator):
             S = None
 
         self.n_iter_ = n_iter
+        self.lim_ = lim
 
         if self.whiten:
             self.components_ = np.dot(W, K)
