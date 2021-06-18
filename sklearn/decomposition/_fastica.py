@@ -71,6 +71,7 @@ def _ica_def(X, tol, g, fun_args, max_iter, w_init):
     n_iter = []
 
     # j is the index of the extracted component
+    convergence = {j:[] for j in range(n_components)}
     for j in range(n_components):
         w = w_init[j, :].copy()
         w /= np.sqrt((w ** 2).sum())
@@ -86,13 +87,15 @@ def _ica_def(X, tol, g, fun_args, max_iter, w_init):
 
             lim = np.abs(np.abs((w1 * w).sum()) - 1)
             w = w1
+            convergence[j].append(lim)
+            
             if lim < tol:
                 break
 
         n_iter.append(i + 1)
         W[j, :] = w
 
-    return W, max(n_iter), lim
+    return W, max(n_iter), convergence
 
 
 def _ica_par(X, tol, g, fun_args, max_iter, w_init):
@@ -104,6 +107,7 @@ def _ica_par(X, tol, g, fun_args, max_iter, w_init):
     W = _sym_decorrelation(w_init)
     del w_init
     p_ = float(X.shape[1])
+    convergence = []
     for ii in range(max_iter):
         gwtx, g_wtx = g(np.dot(W, X), fun_args)
         W1 = _sym_decorrelation(np.dot(gwtx, X.T) / p_
@@ -112,6 +116,8 @@ def _ica_par(X, tol, g, fun_args, max_iter, w_init):
         # builtin max, abs are faster than numpy counter parts.
         lim = max(abs(abs(np.diag(np.dot(W1, W.T))) - 1))
         W = W1
+        convergence.append(lim)
+        
         if lim < tol:
             break
     else:
@@ -119,7 +125,7 @@ def _ica_par(X, tol, g, fun_args, max_iter, w_init):
                       'tolerance or the maximum number of iterations.',
                       ConvergenceWarning)
 
-    return W, ii + 1, lim
+    return W, ii + 1, convergence
 
 
 # Some standard non-linear functions.
@@ -508,9 +514,9 @@ class FastICA(TransformerMixin, BaseEstimator):
                   'w_init': w_init}
 
         if self.algorithm == 'parallel':
-            W, n_iter, lim = _ica_par(X1, **kwargs)
+            W, n_iter, convergence = _ica_par(X1, **kwargs)
         elif self.algorithm == 'deflation':
-            W, n_iter, lim = _ica_def(X1, **kwargs)
+            W, n_iter, convergence = _ica_def(X1, **kwargs)
         else:
             raise ValueError('Invalid algorithm: must be either `parallel` or'
                              ' `deflation`.')
@@ -525,7 +531,7 @@ class FastICA(TransformerMixin, BaseEstimator):
             S = None
 
         self.n_iter_ = n_iter
-        self.lim_ = lim
+        self.convergence_ = convergence
 
         if self.whiten:
             self.components_ = np.dot(W, K)
